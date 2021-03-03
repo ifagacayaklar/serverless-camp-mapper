@@ -68,13 +68,15 @@ export class CampgroundAccess {
     }
 
     async deleteCampground(author: string, campgroundId: string) {
-        await this.docClient.delete({
+        const res = await this.docClient.delete({
             TableName:this.campgroundsTable,
             Key:{
                 "author": author,
                 "campgroundId": campgroundId
             } 
-          }).promise()
+        }).promise()
+        
+        console.log(res)
     }
     
 }

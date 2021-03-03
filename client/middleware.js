@@ -1,54 +1,41 @@
+const axios = require('axios');
+const {apiId} = require('./config');
 const ExpressError = require('./utils/ExpressError');
-const Campground = require('./models/campground');
-const Review = require('./models/review');
-const {campgroundSchema, reviewSchema} = require('./validation/schemas');
 
-module.exports.isLoggedIn = (req, res, next) => {
-    if(!req.isAuthenticated()){
+module.exports.isLoggedIn = async(req, res, next) => {
+    console.log('Checking auth')
+    const token = req.cookies.token
+    console.log(req.body)
+    if (!token){
         req.session.returnTo = req.originalUrl;
         req.flash('error', 'You must be signed in');
         return res.redirect('/login');
     }
-    next();
+    const payload = {token:token}
+    
+    try{
+        const apiRes = await axios.post(
+            `https://${apiId}.execute-api.eu-central-1.amazonaws.com/dev/users/auth`, payload
+        )
+        req.username = apiRes.data.username
+        next();
+    } catch(e) {
+        throw new ExpressError(e.message)
+    }
+
 }
 
 module.exports.isAuthor = async(req, res, next) => {
-    const {id} = req.params
-    const campground = await Campground.findById(id);
-    if (!campground.author.equals(req.user._id)){
+    
+    const campgroundId = req.params.id;
+    const apiRes = await axios.get(`https://${apiId}.execute-api.eu-central-1.amazonaws.com/dev/campgrounds/${campgroundId}`)
+    const campground = apiRes.data.items
+    
+    if (!campground.author.equals(req.username)){
         req.flash('error', 'You are not the author')
         return res.redirect(`/campgrounds/${id}`)
     }
+    req.items.campground = campground
     next();
 }
 
-module.exports.isReviewAuthor = async(req, res, next) => {
-    const {id ,reviewId} = req.params
-    const review = await Review.findById(reviewId);
-    if (!review.author.equals(req.user._id)){
-        req.flash('error', 'You are not the author')
-        return res.redirect(`/campgrounds/${id}`)
-    }
-    next();
-}
-
-
-module.exports.validateCampground = (req, res, next) => {
-    const {error} = campgroundSchema.validate(req.body);
-    if(error) {
-        const msg = error.details.map(el => el.message).join(',')
-        throw new ExpressError(msg, 400)
-    }else {
-        next()
-    }
-}
-
-module.exports.validateReview = (req, res, next) => {
-    const {error} = reviewSchema.validate(req.body);
-    if(error) {
-        const msg = error.details.map(el => el.message).join(',')
-        throw new ExpressError(msg, 400)
-    }else {
-        next()
-    }
-}

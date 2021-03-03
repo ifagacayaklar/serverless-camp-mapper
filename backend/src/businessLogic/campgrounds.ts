@@ -25,8 +25,7 @@ export async function createCampground(
         campgroundId: campgroundId,
         author: author,
         ...newCampground,
-        images: {url: `https://${bucketName}.s3.amazonaws.com/${campgroundId}`, filename:'test'},
-        reviews : ['bad','nice']
+        images: [{url: `https://${bucketName}.s3.amazonaws.com/${campgroundId}`, filename:'test'}],
       }
     
    return await campgroundAccess.createCampground(newItem) 
@@ -45,7 +44,7 @@ export async function deleteCampground(
     campgroundId: string, 
      
 ){
-    await campgroundAccess.deleteCampground(author, campgroundId)
+    await campgroundAccess.deleteCampground(author, campgroundId)  
 }
 
 

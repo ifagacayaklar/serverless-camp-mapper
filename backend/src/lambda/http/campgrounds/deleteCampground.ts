@@ -1,14 +1,14 @@
 import 'source-map-support/register'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda'
-import { createLogger } from '../../utils/logger'
-import {getUserId} from '../utils'
-import {deleteCampground} from '../../businessLogic/campgrounds';
+import { createLogger } from '../../../utils/logger'
+import {getUsername} from '../../utils'
+import {deleteCampground} from '../../../businessLogic/campgrounds';
 
 const logger = createLogger('deleteCampgrounds')
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   logger.info("Processing event", event)
-  const author = getUserId(event)  
+  const author = getUsername(event)  
   const campgroundId = event.pathParameters.campgroundId
   
   try{

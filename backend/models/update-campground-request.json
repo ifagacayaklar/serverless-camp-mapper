@@ -8,8 +8,8 @@
         "minLength": 1
       },
       "price": {
-        "type": "number",
-        "minimum": 0
+        "type": "string",
+        "minLength": 1
       },
       "location": {
         "type": "string",

@@ -5,9 +5,8 @@ export interface CampgroundItem {
   images: {
     url: string
     filename:string
-  }
-  price:number
+  }[]
+  price:string
   description: string
   location: string
-  reviews: string[]
 }

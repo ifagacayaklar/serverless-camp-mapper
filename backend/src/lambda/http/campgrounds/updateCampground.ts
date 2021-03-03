@@ -1,9 +1,9 @@
 import 'source-map-support/register'
 import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda'
-import { CampgroundRequest } from '../../requests/CampgroundRequest'
-import { createLogger } from '../../utils/logger'
-import {getUserId} from '../utils'
-import {updateCampground} from '../../businessLogic/campgrounds';
+import { CampgroundRequest } from '../../../requests/CampgroundRequest'
+import { createLogger } from '../../../utils/logger'
+import {getUsername} from '../../utils'
+import {updateCampground} from '../../../businessLogic/campgrounds';
 
 
 const logger = createLogger('updateCampgrounds')
@@ -11,7 +11,7 @@ const logger = createLogger('updateCampgrounds')
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   logger.info("Processing event", event)
 
-  const author = getUserId(event)  
+  const author = getUsername(event)  
   const campgroundId = event.pathParameters.campgroundId
   const updatedCampground: CampgroundRequest = JSON.parse(event.body)
 

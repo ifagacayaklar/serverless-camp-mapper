@@ -1,30 +1,25 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "title": "createcampground",
+    "title": "createuser",
     "type": "object",
     "properties": {
-      "title": {
+      "email": {
         "type": "string",
         "minLength": 1
       },
-      "price": {
-        "type": "string",
-        "minLenght": 1
-      },
-      "location": {
+      "username": {
         "type": "string",
         "minLength": 1
       },
-      "description": {
+      "password": {
         "type": "string",
         "minLength": 1
       }
     },
     "required": [
-      "title",
-      "price",
-      "location",
-      "description"
+      "email",
+      "username",
+      "password"
     ],
     "additionalProperties": false
 }

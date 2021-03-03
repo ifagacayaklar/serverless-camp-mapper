@@ -1,15 +1,16 @@
 import 'source-map-support/register'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda'
-import {getCampgrounds} from '../../businessLogic/campgrounds';
+import {getCampground} from '../../../businessLogic/campgrounds';
 
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../../utils/logger'
 
-const logger = createLogger('getCampgrounds')
+const logger = createLogger('getCampground')
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
 
   logger.info("Processing event", event)
-  const items = await getCampgrounds()
+  const campgroundId = event.pathParameters.campgroundId
+  const item = await getCampground(campgroundId)
 
   return {
     statusCode: 200,
@@ -17,7 +18,7 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
       'Access-Control-Allow-Origin': '*'
     },
     body: JSON.stringify({
-      items: items
+      items: item
     })
   }
 }
