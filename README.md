@@ -1,7 +1,7 @@
 
 # Udacity Cloud Developer Capstone 
 
-This express app is the final project of Udacity Cloud Developer Nanodegree Program. The project is based on final project of the [Web Developer Bootcamp](https://www.udemy.com/course/the-web-developer-bootcamp/) at Udemy
+This serverless app is the final project of Udacity Cloud Developer Nanodegree Program. The project is based on final project of the [Web Developer Bootcamp](https://www.udemy.com/course/the-web-developer-bootcamp/) at Udemy
 
 Regular version was built as server application using
 - **MongoDB** & **Mongo Atlas**: NoSQL database
