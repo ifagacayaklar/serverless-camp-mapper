@@ -1,8 +1,8 @@
 import 'source-map-support/register'
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda'
-import { createLogger } from '../../utils/logger'
-import {getUploadUrl} from '../../businessLogic/attachment';
+import { createLogger } from '../../../utils/logger'
+import {getUploadUrl} from '../../../businessLogic/attachment';
 
 const logger = createLogger('generateUploadUrl')
 

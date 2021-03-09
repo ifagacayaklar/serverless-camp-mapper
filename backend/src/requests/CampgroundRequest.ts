@@ -3,7 +3,8 @@
  */
 export interface CampgroundRequest {
   title: string
-  price: number
+  price: string
   location: string
   description: string
+  numImages: number
 }

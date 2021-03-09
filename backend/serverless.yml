@@ -14,15 +14,17 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'eu-central-1'}
 
-  # tracing:
-  #   lambda: true
-  #   apiGateway: true
+  tracing:
+    lambda: true
+    apiGateway: true
   
   environment:
     CAMPGROUNDS_TABLE: Campgrounds-${self:provider.stage}
+    USERS_TABLE: Users-${self:provider.stage}
     CAMPGROUND_ID_INDEX: CampgroundIdIndex
     CAMPGROUNDS_S3_BUCKET: serverless-campground-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
+    EMAIL_INDEX: emailIndex
 
 custom:
   documentation:
@@ -38,20 +40,33 @@ custom:
       - name: UpdateCampgroundRequest
         contentType: application/json
         schema: ${file(models/update-campground-request.json)}
-
+      - name: CreateUserRequest
+        contentType: application/json
+        schema: ${file(models/create-user-request.json)}
+      - name: LoginUserRequest
+        contentType: application/json
+        schema: ${file(models/login-user-request.json)}
 
 functions:
   Auth:
-    handler: src/lambda/auth/auth0Authorizer.handler
+    handler: src/lambda/auth/apiAuthorizer.handler
+
+  IsLoggedIn:
+    handler: src/lambda/auth/isLoggedIn.handler
+    events:
+      - http:
+          method: post
+          path: users/auth
+          cors: true
+          authorizer: Auth
 
   GetCampgrounds:
-    handler: src/lambda/http/getCampgrounds.handler
+    handler: src/lambda/http/campgrounds/getCampgrounds.handler
     events:
       - http:
           method: get
           path: campgrounds
           cors: true
-          # authorizer: Auth
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -59,13 +74,12 @@ functions:
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
 
   GetCampground:
-    handler: src/lambda/http/getCampground.handler
+    handler: src/lambda/http/campgrounds/getCampground.handler
     events:
       - http:
           method: get
           path: campgrounds/{campgroundId}
           cors: true
-          # authorizer: Auth
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -73,13 +87,13 @@ functions:
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
 
   CreateCampground:
-    handler: src/lambda/http/createCampground.handler
+    handler: src/lambda/http/campgrounds/createCampground.handler
     events:
       - http:
           method: post
           path: campgrounds
           cors: true
-          # authorizer: Auth
+          authorizer: Auth
           reqValidatorName: RequestBodyValidator
           documentation:
             summary: Create a new campground
@@ -93,13 +107,13 @@ functions:
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
 
   UpdateCampground:
-    handler: src/lambda/http/updateCampground.handler
+    handler: src/lambda/http/campgrounds/updateCampground.handler
     events:
       - http:
           method: patch
           path: campgrounds/{campgroundId}
           cors: true
-          # authorizer: Auth
+          authorizer: Auth
           reqValidatorName: RequestBodyValidator
           documentation:
             summary: Update a new campground
@@ -110,31 +124,32 @@ functions:
       - Effect: Allow
         Action:
           - dynamodb:UpdateItem
+          - dynamodb:Query
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
 
   DeleteCampground:
-    handler: src/lambda/http/deleteCampground.handler
+    handler: src/lambda/http/campgrounds/deleteCampground.handler
     events:
       - http:
           method: delete
           path: campgrounds/{campgroundId}
           cors: true
-          # authorizer: Auth
+          authorizer: Auth
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:DeleteItem
+          - dynamodb:Query
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
-
-
+  
   GenerateUploadUrl:
-    handler: src/lambda/http/generateUploadUrl.handler
+    handler: src/lambda/http/campgrounds/generateUploadUrl.handler
     events:
       - http:
           method: post
           path: campgrounds/{campgroundId}/attachment
           cors: true
-          # authorizer: Auth
+          authorizer: Auth
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -142,6 +157,44 @@ functions:
           - s3:GetObject
         Resource: arn:aws:s3:::${self:provider.environment.CAMPGROUNDS_S3_BUCKET}/*
 
+  Login:
+    handler: src/lambda/http/users/Login.handler
+    events:
+      - http:
+          method: post
+          path: users/login
+          cors: true
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Login a  user
+            description: Login a new user
+            requestModels:
+              'application/json': LoginUserRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}
+  
+  Register:
+    handler: src/lambda/http/users/Register.handler
+    events:
+      - http:
+          method: post
+          path: users/register
+          cors: true
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Create a new user
+            description: Create a new user
+            requestModels:
+              'application/json': CreateUserRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}
 
 resources:
   Resources:
@@ -171,6 +224,27 @@ resources:
             KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.CAMPGROUNDS_TABLE}
+    
+    UsersDynamoDBTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: username
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: username
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.USERS_TABLE}
+        GlobalSecondaryIndexes:
+          - IndexName: ${self:provider.environment.EMAIL_INDEX}
+            KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+            Projection:
+              ProjectionType: ALL
 
     RequestBodyValidator:
       Type: AWS::ApiGateway::RequestValidator
