@@ -1,4 +1,5 @@
-const User = require('../models/user');
+const {apiId} = require('../config');
+const axios = require('axios');
 
 module.exports.renderRegisterUser = (req, res) => {
     res.render('users/register');
@@ -7,13 +8,17 @@ module.exports.renderRegisterUser = (req, res) => {
 module.exports.registerUser = async (req, res) => {
     try {
         const {email, username, password} = req.body;
-        const  user = new User({email, username})
-        const newUser = await User.register(user, password)
-        req.login(newUser, err => {
-            if(err) return next(err)
-            req.flash('success', 'Welcome to Camp Mapper');
-            res.redirect('/campgrounds')
-        })
+        const options = { headers: {'Content-Type': 'application/json' } }
+        const payload = { 
+            email:email,
+            username:username,
+            password:password
+        }
+        const apiRes = await axios.post(`https://${apiId}.execute-api.eu-central-1.amazonaws.com/dev/users/register`, payload, options)
+        res.cookie('username',username , { maxAge: 900000, httpOnly: true });
+        res.cookie('token',apiRes.data.JWT , { maxAge: 900000, httpOnly: true });
+        req.flash('success', 'Welcome to Camp Mapper');
+        res.redirect('/campgrounds')
     } catch (e) {
         req.flash('error', e.message)
         res.redirect('/register')
@@ -24,15 +29,31 @@ module.exports.renderLoginUser = (req, res) => {
     res.render('users/login')
 }
 
-module.exports.loginUser =  (req, res) => {
-    req.flash('success', 'Welcome Back!');
-    redirectUrl = req.session.returnTo || '/campgrounds';
-    delete req.session.returnTo;
-    res.redirect(redirectUrl);
+module.exports.loginUser =  async (req, res) => {
+    try {
+        const {username, password} = req.body;
+        const options = { headers: {'Content-Type': 'application/json' } }
+        const payload = {
+            username: username, 
+            password: password
+        }
+        const apiRes = await axios.post(`https://${apiId}.execute-api.eu-central-1.amazonaws.com/dev/users/login`, payload, options)
+        res.cookie('username',username , { maxAge: 900000, httpOnly: true });
+        res.cookie('token',apiRes.data.JWT , { maxAge: 900000, httpOnly: true });
+        req.flash('success', 'Welcome Back!');
+        redirectUrl = req.session.returnTo || '/campgrounds';
+        delete req.session.returnTo;
+        res.redirect(redirectUrl);
+    }catch (e) {
+        req.flash('error', e.message)
+        res.redirect('/login')
+    }
+
 }
 
 module.exports.logoutUser = (req, res) => {
-    req.logout();
+    res.clearCookie('token'); 
+    res.clearCookie('username'); 
     req.flash('success', 'Goodbye!');
     res.redirect('/campgrounds')
 }

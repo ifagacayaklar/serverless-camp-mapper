@@ -2,13 +2,11 @@ const { Router } = require('express');
 const ExpressError = require('../utils/ExpressError');
 
 const campgroundRoutes = require('./campgrounds');
-const reviewRoutes = require('./reviews'); 
 const userRoutes = require('./users');
 
 const router = Router();
 
 router.use('/', userRoutes);
-router.use('/campgrounds/:id/reviews', reviewRoutes)
 router.use('/campgrounds', campgroundRoutes);
 
 

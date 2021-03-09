@@ -1,114 +1,289 @@
-# Welcome to Serverless!
-#
-# This file is the main config file for your service.
-# It's very minimal at this point and uses default values.
-# You can always add more config options for more control.
-# We've included some commented out config examples here.
-# Just uncomment any of them to get that config option.
-#
-# For full config options, check the docs:
-#    docs.serverless.com
-#
-# Happy Coding!
+service:
+  name: serverless-campground-app
 
-service: capstone-project
-# app and org for use with dashboard.serverless.com
-#app: your-app-name
-#org: your-org-name
+plugins:
+  - serverless-webpack
+  - serverless-iam-roles-per-function
+  - serverless-reqvalidator-plugin
+  - serverless-aws-documentation
 
-# You can pin your service to only deploy with a specific Serverless version
-# Check out our docs for more details
-frameworkVersion: '2'
-
-provider:
+provider: 
   name: aws
   runtime: nodejs12.x
-  lambdaHashingVersion: 20201221
 
-# you can overwrite defaults here
-#  stage: dev
-#  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'eu-central-1'}
 
-# you can add statements to the Lambda function's IAM Role here
-#  iamRoleStatements:
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:ListBucket"
-#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:PutObject"
-#      Resource:
-#        Fn::Join:
-#          - ""
-#          - - "arn:aws:s3:::"
-#            - "Ref" : "ServerlessDeploymentBucket"
-#            - "/*"
+  tracing:
+    lambda: true
+    apiGateway: true
+  
+  environment:
+    CAMPGROUNDS_TABLE: Campgrounds-${self:provider.stage}
+    USERS_TABLE: Users-${self:provider.stage}
+    CAMPGROUND_ID_INDEX: CampgroundIdIndex
+    CAMPGROUNDS_S3_BUCKET: serverless-campground-${self:provider.stage}
+    SIGNED_URL_EXPIRATION: 300
+    EMAIL_INDEX: emailIndex
 
-# you can define service wide environment variables here
-#  environment:
-#    variable1: value1
-
-# you can add packaging information here
-#package:
-#  include:
-#    - include-me.js
-#    - include-me-dir/**
-#  exclude:
-#    - exclude-me.js
-#    - exclude-me-dir/**
+custom:
+  documentation:
+    api:
+      info:
+        version: v1.0.0
+        title: Campgrounds API
+        description: Serverless Campground App
+    models:
+      - name: CreateCampgroundRequest
+        contentType: application/json
+        schema: ${file(models/create-campground-request.json)}
+      - name: UpdateCampgroundRequest
+        contentType: application/json
+        schema: ${file(models/update-campground-request.json)}
+      - name: CreateUserRequest
+        contentType: application/json
+        schema: ${file(models/create-user-request.json)}
+      - name: LoginUserRequest
+        contentType: application/json
+        schema: ${file(models/login-user-request.json)}
 
 functions:
-  hello:
-    handler: handler.hello
-#    The following are a few example events you can configure
-#    NOTE: Please make sure to change your handler code to work with those events
-#    Check the event documentation for details
-#    events:
-#      - httpApi:
-#          path: /users/create
-#          method: get
-#      - websocket: $connect
-#      - s3: ${env:BUCKET}
-#      - schedule: rate(10 minutes)
-#      - sns: greeter-topic
-#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
-#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
-#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
-#      - iot:
-#          sql: "SELECT * FROM 'some_topic'"
-#      - cloudwatchEvent:
-#          event:
-#            source:
-#              - "aws.ec2"
-#            detail-type:
-#              - "EC2 Instance State-change Notification"
-#            detail:
-#              state:
-#                - pending
-#      - cloudwatchLog: '/aws/lambda/hello'
-#      - cognitoUserPool:
-#          pool: MyUserPool
-#          trigger: PreSignUp
-#      - alb:
-#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
-#          priority: 1
-#          conditions:
-#            host: example.com
-#            path: /hello
+  Auth:
+    handler: src/lambda/auth/apiAuthorizer.handler
 
-#    Define function environment variables here
-#    environment:
-#      variable2: value2
+  IsLoggedIn:
+    handler: src/lambda/auth/isLoggedIn.handler
+    events:
+      - http:
+          method: post
+          path: users/auth
+          cors: true
+          authorizer: Auth
 
-# you can add CloudFormation resource templates here
-#resources:
-#  Resources:
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
-#  Outputs:
-#     NewOutput:
-#       Description: "Description for the output"
-#       Value: "Some output value"
+  GetCampgrounds:
+    handler: src/lambda/http/campgrounds/getCampgrounds.handler
+    events:
+      - http:
+          method: get
+          path: campgrounds
+          cors: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
+
+  GetCampground:
+    handler: src/lambda/http/campgrounds/getCampground.handler
+    events:
+      - http:
+          method: get
+          path: campgrounds/{campgroundId}
+          cors: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
+
+  CreateCampground:
+    handler: src/lambda/http/campgrounds/createCampground.handler
+    events:
+      - http:
+          method: post
+          path: campgrounds
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Create a new campground
+            description: Create a new campground
+            requestModels:
+              'application/json': CreateCampgroundRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
+
+  UpdateCampground:
+    handler: src/lambda/http/campgrounds/updateCampground.handler
+    events:
+      - http:
+          method: patch
+          path: campgrounds/{campgroundId}
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Update a new campground
+            description: Update a new campground
+            requestModels:
+              'application/json': UpdateCampgroundRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
+
+  DeleteCampground:
+    handler: src/lambda/http/campgrounds/deleteCampground.handler
+    events:
+      - http:
+          method: delete
+          path: campgrounds/{campgroundId}
+          cors: true
+          authorizer: Auth
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CAMPGROUNDS_TABLE}
+  
+  GenerateUploadUrl:
+    handler: src/lambda/http/campgrounds/generateUploadUrl.handler
+    events:
+      - http:
+          method: post
+          path: campgrounds/{campgroundId}/attachment
+          cors: true
+          authorizer: Auth
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - s3:PutObject
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:provider.environment.CAMPGROUNDS_S3_BUCKET}/*
+
+  Login:
+    handler: src/lambda/http/users/Login.handler
+    events:
+      - http:
+          method: post
+          path: users/login
+          cors: true
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Login a  user
+            description: Login a new user
+            requestModels:
+              'application/json': LoginUserRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}
+  
+  Register:
+    handler: src/lambda/http/users/Register.handler
+    events:
+      - http:
+          method: post
+          path: users/register
+          cors: true
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Create a new user
+            description: Create a new user
+            requestModels:
+              'application/json': CreateUserRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}
+
+resources:
+  Resources:
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: ApiGatewayRestApi
+          
+    CampgroundsDynamoDBTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: campgroundId
+            AttributeType: S
+          - AttributeName: author
+            AttributeType: S
+        KeySchema:
+          - AttributeName: campgroundId
+            KeyType: HASH
+          - AttributeName: author
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.CAMPGROUNDS_TABLE}
+    
+    UsersDynamoDBTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: username
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: username
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.USERS_TABLE}
+        GlobalSecondaryIndexes:
+          - IndexName: ${self:provider.environment.EMAIL_INDEX}
+            KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    RequestBodyValidator:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: 'request-body-validator'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
+
+    AttachmentsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.CAMPGROUNDS_S3_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders: 
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        PolicyDocument:
+          Id: MyPolicy
+          Version: "2012-10-17"
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::${self:provider.environment.CAMPGROUNDS_S3_BUCKET}/*'
+        Bucket: !Ref AttachmentsBucket
