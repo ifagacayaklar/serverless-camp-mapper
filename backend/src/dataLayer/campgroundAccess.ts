@@ -1,16 +1,16 @@
 import * as AWS  from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { CampgroundItem } from '../models/CampgroundItem'
-import { CampgroundRequest } from '../requests/CampgroundRequest'
-// const AWSXRay = require('aws-xray-sdk')
+import { CampgroundUpdate } from '../requests/CampgroundUpdate'
+const AWSXRay = require('aws-xray-sdk')
 
-// const XAWS = AWSXRay.captureAWS(AWS)
+const XAWS = AWSXRay.captureAWS(AWS)
 
 
 export class CampgroundAccess {
 
     constructor(
-      private readonly docClient: DocumentClient = new AWS.DynamoDB.DocumentClient(),
+      private readonly docClient: DocumentClient = new XAWS.DynamoDB.DocumentClient(),
       private readonly campgroundsTable = process.env.CAMPGROUNDS_TABLE) {
     }
 
@@ -48,8 +48,8 @@ export class CampgroundAccess {
         return newItem
     }
 
-    async updateCampground(author: string, campgroundId: string, updatedCampground: CampgroundRequest){
-        await this.docClient.update({
+    async updateCampground(author: string, campgroundId: string, updatedCampground: CampgroundUpdate){
+        const res = await this.docClient.update({
             TableName: this.campgroundsTable,
             Key:{
                 "author": author,
@@ -65,6 +65,8 @@ export class CampgroundAccess {
             ExpressionAttributeNames:
             { "#locationfield": "location" },
         }).promise()
+
+        return res
     }
 
     async deleteCampground(author: string, campgroundId: string) {
@@ -76,7 +78,7 @@ export class CampgroundAccess {
             } 
         }).promise()
         
-        console.log(res)
+        return res
     }
     
 }

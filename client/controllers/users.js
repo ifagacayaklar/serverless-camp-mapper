@@ -15,7 +15,7 @@ module.exports.registerUser = async (req, res) => {
             password:password
         }
         const apiRes = await axios.post(`https://${apiId}.execute-api.eu-central-1.amazonaws.com/dev/users/register`, payload, options)
-        req.username = username
+        res.cookie('username',username , { maxAge: 900000, httpOnly: true });
         res.cookie('token',apiRes.data.JWT , { maxAge: 900000, httpOnly: true });
         req.flash('success', 'Welcome to Camp Mapper');
         res.redirect('/campgrounds')
@@ -38,9 +38,9 @@ module.exports.loginUser =  async (req, res) => {
             password: password
         }
         const apiRes = await axios.post(`https://${apiId}.execute-api.eu-central-1.amazonaws.com/dev/users/login`, payload, options)
+        res.cookie('username',username , { maxAge: 900000, httpOnly: true });
         res.cookie('token',apiRes.data.JWT , { maxAge: 900000, httpOnly: true });
         req.flash('success', 'Welcome Back!');
-        req.username = username
         redirectUrl = req.session.returnTo || '/campgrounds';
         delete req.session.returnTo;
         res.redirect(redirectUrl);
@@ -53,6 +53,7 @@ module.exports.loginUser =  async (req, res) => {
 
 module.exports.logoutUser = (req, res) => {
     res.clearCookie('token'); 
+    res.clearCookie('username'); 
     req.flash('success', 'Goodbye!');
     res.redirect('/campgrounds')
 }

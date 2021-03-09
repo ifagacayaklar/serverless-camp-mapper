@@ -6,4 +6,5 @@ export interface CampgroundRequest {
   price: string
   location: string
   description: string
+  numImages: number
 }

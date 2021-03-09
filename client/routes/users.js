@@ -1,5 +1,4 @@
 const express = require('express');
-const passport = require('passport');
 const catchAsync = require('../utils/catchAsync');
 const users = require('../controllers/users');
 

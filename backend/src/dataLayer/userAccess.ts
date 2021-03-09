@@ -1,16 +1,16 @@
 import * as AWS  from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { User } from '../models/User'
-// const AWSXRay = require('aws-xray-sdk')
+const AWSXRay = require('aws-xray-sdk')
 
-// const XAWS = AWSXRay.captureAWS(AWS)
+const XAWS = AWSXRay.captureAWS(AWS)
 
 
 
 export class UserAccess {
 
     constructor(
-      private readonly docClient: DocumentClient = new AWS.DynamoDB.DocumentClient(),
+      private readonly docClient: DocumentClient = new XAWS.DynamoDB.DocumentClient(),
       private readonly usersTable = process.env.USERS_TABLE,
       private readonly emailIndex = process.env.EMAIL_INDEX) {
     }
