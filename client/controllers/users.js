@@ -20,8 +20,13 @@ module.exports.registerUser = async (req, res) => {
         req.flash('success', 'Welcome to Camp Mapper');
         res.redirect('/campgrounds')
     } catch (e) {
-        req.flash('error', e.message)
-        res.redirect('/register')
+        if (e.response && e.response.data && e.response.data.message){
+            req.flash('error', e.response.data.message)
+            res.redirect('/register')
+        }else{
+            req.flash('error', e.response.data.message)
+            res.redirect('/register')
+        }
     }
 }
 
@@ -45,8 +50,20 @@ module.exports.loginUser =  async (req, res) => {
         delete req.session.returnTo;
         res.redirect(redirectUrl);
     }catch (e) {
-        req.flash('error', e.message)
-        res.redirect('/login')
+        console.log(e)
+        if (e.response && e.response.data && e.response.data.message){
+            if (e.response.data.message === 'Internal server error'){
+                req.flash('error', 'Username or password is wrong')
+                res.redirect('/register')
+            }else{
+                req.flash('error', e.response.data.message)
+                res.redirect('/register')
+            }
+        }else{
+            req.flash('error', e.response.data.message)
+            res.redirect('/register')
+        }
+
     }
 
 }
