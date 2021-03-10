@@ -24,7 +24,7 @@ module.exports.registerUser = async (req, res) => {
             req.flash('error', e.response.data.message)
             res.redirect('/register')
         }else{
-            req.flash('error', e.response.data.message)
+            req.flash('error', e.message)
             res.redirect('/register')
         }
     }
@@ -60,7 +60,7 @@ module.exports.loginUser =  async (req, res) => {
                 res.redirect('/register')
             }
         }else{
-            req.flash('error', e.response.data.message)
+            req.flash('error', e.message)
             res.redirect('/register')
         }
 
